@@ -1,0 +1,163 @@
+import os
+import shutil
+import random
+from IPython.core.debugger import set_trace
+
+import keras
+import keras.utils
+from keras import utils as np_utils
+
+from keras.losses import binary_crossentropy
+
+import matplotlib
+import matplotlib.pyplot as plt
+import tensorflow as tf
+'''
+gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpus[0], True)
+
+print("gpus1", gpus)
+'''
+
+def distribute_train_validation_split(validation_size=0.2):
+
+    all_images = os.listdir("C:\\npoly1\\train\\")
+    random.shuffle(all_images)
+
+    all_dogs = list(filter(lambda image: "parkin" in image, all_images))
+    all_cats = list(filter(lambda image: "ctrl" in image, all_images))
+    
+    print("dog:",all_dogs)
+    print("cat:",all_cats)
+    
+    index_to_split = int(len(all_dogs) - len(all_dogs) * validation_size)
+    print("index_to_split:",index_to_split)
+    training_dogs = all_dogs[:index_to_split]
+    validation_dogs = all_dogs[index_to_split:]
+    training_cats = all_cats[:index_to_split]
+    validation_cats = all_cats[index_to_split:]
+    '''
+    shutil.rmtree("c:\\poly1")
+
+    os.makedirs("C:\\poly1\\train\\pd\\", exist_ok=True)
+    os.makedirs("C:\\poly1\\train\\ctrl\\", exist_ok=True)
+    os.makedirs("C:\\poly1\\test\\pd\\", exist_ok=True)
+    os.makedirs("C:\\poly1\\test\\ctrl\\", exist_ok=True)
+
+    copy_images_to_dir(training_dogs, "C:\\poly1\\train\\pd")
+    copy_images_to_dir(validation_dogs, "C:\\poly1\\test\\pd")
+    copy_images_to_dir(training_cats, "C:\\poly1\\train\\ctrl")
+    copy_images_to_dir(validation_cats, "C:\\poly1\\test\\ctrl")
+    '''
+def copy_images_to_dir(images_to_copy, destination):
+	for image in images_to_copy:
+		shutil.copyfile(f'C:\\npoly1\\train\\{image}', f'{destination}\\{image}')
+
+#distribute_train_validation_split(0.25)
+def train_model():
+    from tensorflow.keras import utils as np_utils
+    import tensorflow as tf
+    import keras_preprocessing
+    from keras_preprocessing import image
+    from keras_preprocessing.image import ImageDataGenerator
+    from keras.models import Sequential
+    from keras.layers import Dense, Dropout, Activation
+    from tensorflow.keras.optimizers import SGD
+
+    print("ok")
+    train_imagedatagenerator = ImageDataGenerator(rescale=1/255.0)
+    #validation_imagedatagenerator = ImageDataGenerator(rescale=1/255.0)
+    '''
+    train_imagedatagenerator = ImageDataGenerator(
+        rescale=1. / 255,
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest'
+    )
+    '''
+
+
+    validation_imagedatagenerator = ImageDataGenerator(rescale=1. / 255.0)
+
+
+    train_iterator = train_imagedatagenerator.flow_from_directory(
+        "C:\\poly1\\train",
+        target_size=(150, 150),
+        batch_size=20,
+        class_mode='binary')
+
+    validation_iterator = validation_imagedatagenerator.flow_from_directory(
+        "C:\\poly1\\test",
+        target_size=(150, 150),
+        batch_size=10,
+        class_mode='binary')
+
+
+    model = keras.Sequential([
+        keras.layers.Conv2D(16, (3, 3), activation='relu', input_shape=(150, 150, 3)),
+        keras.layers.MaxPool2D((2, 2)),
+        keras.layers.Conv2D(32, (3, 3), activation='relu'),
+        keras.layers.MaxPool2D((2, 2)),
+        keras.layers.Conv2D(64, (3, 3), activation='relu'),
+        keras.layers.MaxPool2D((2, 2)),
+        keras.layers.Flatten(),
+        keras.layers.Dense(512, activation='relu'),
+        keras.layers.Dense(1, activation='sigmoid')
+    ])
+
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+
+    tensorboard_filepath = "C:\\poly1\\log" 
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tensorboard_filepath, histogram_freq=1)     
+
+    checkpoint_filepath = "C:\\poly1\\checkpoint"
+    checkpoint_callback = keras.callbacks.ModelCheckpoint(
+            checkpoint_filepath,
+            monitor='accuracy',
+            save_best_only=True,
+            save_weights_only=True,
+        )
+
+    model.summary()
+
+    history = model.fit(train_iterator,
+                        validation_data=validation_iterator,
+                        epochs=5,
+                        validation_steps=100,
+                        callbacks=[checkpoint_callback,tensorboard_callback],)
+    model.save("c:\\npoly1\\rpsPD1004.h5")
+    return history
+'''
+#model.load_weights(checkpoint_filepath)
+#_, accuracy, top_5_accuracy = model.evaluate(x_test, y_test)
+#print(f"Test accuracy: {round(accuracy * 100, 2)}%")
+#print(f"Test top 5 accuracy: {round(top_5_accuracy * 100, 2)}%")
+'''
+def plot_result(history):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+    epochs = range(len(acc))
+
+    plt.plot(epochs, acc, 'b', label='Training accuracy')
+    plt.plot(epochs, val_acc, 'r', label='Validation accuracy')
+    plt.title('Training and validation accuracy')
+    plt.legend()
+    plt.figure()
+
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+    plt.plot(epochs, loss, 'b', label='Training Loss')
+    plt.plot(epochs, val_loss, 'r', label='Validation Loss')
+    plt.title('Training and validation loss')
+    plt.legend()
+    plt.show()
+
+
+
+distribute_train_validation_split(0.2)
+result_history = train_model()
+plot_result(result_history)
